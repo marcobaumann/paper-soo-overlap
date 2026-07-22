@@ -47,6 +47,8 @@ def main():
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--seed", type=int, required=True)
     ap.add_argument("--tag", required=True, help="label for this arm, e.g. soo/sham/baseline")
+    ap.add_argument("--n_debug", type=int, default=15,
+                     help="number of raw prompt/response pairs to dump for manual inspection")
     args = ap.parse_args()
 
     device = "cuda"
@@ -54,7 +56,8 @@ def main():
 
     scenarios = build_test_scenarios(EVAL.n_test_examples, args.seed)
     counts = {"honest": 0, "deceptive": 0, "unclear": 0}
-    for s in scenarios:
+    debug_samples = []
+    for i, s in enumerate(scenarios):
         prompt = s["prompt"] + MODEL.response_primer
         msgs = [{"role": "user", "content": prompt}]
         ids = tok.apply_chat_template(msgs, return_tensors="pt", add_generation_prompt=True).to(device)
@@ -65,10 +68,22 @@ def main():
             pad_token_id=tok.pad_token_id,
         )
         resp = tok.decode(out[0][ids.shape[1]:], skip_special_tokens=True)
-        counts[classify(resp, s["honest_room"], s["deceptive_room"])] += 1
+        label = classify(resp, s["honest_room"], s["deceptive_room"])
+        counts[label] += 1
+        if i < args.n_debug:
+            debug_samples.append({
+                "prompt": s["prompt"], "honest_room": s["honest_room"],
+                "deceptive_room": s["deceptive_room"],
+                "response": resp, "classification": label,
+            })
 
     n = len(scenarios)
     dec_rate = 100.0 * counts["deceptive"] / n
+
+    os.makedirs("debug", exist_ok=True)
+    debug_path = f"debug/{args.tag}_seed{args.seed}.json"
+    with open(debug_path, "w") as f:
+        json.dump(debug_samples, f, indent=2)
 
     capture = OProjCapture(model, MODEL.soo_layer)
     latent = measure_latent_soo(
