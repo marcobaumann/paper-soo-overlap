@@ -12,9 +12,8 @@ for SEED in 0 1 2 3 4; do
   python evaluate.py --ckpt "./checkpoints/soo_seed${SEED}" --seed "$SEED" --tag soo
 done
 
-echo "=== aggregate ==="
-python aggregate.py --tag soo
+# classify_responses.py and aggregate.py are NOT run here — classification
+# uses an LLM judge and must run locally (not on this pod) after downloading
+# results/. See README.md's "Run" section.
 
 # Paper target (Mistral-7B): deceptive_response_rate 73.6 -> 17.27 +/- 1.88
-# If mean-pooled Latent SOO barely moves and deception doesn't drop, this is the
-# known mean-pooling degeneracy: set TRAIN.pooling="last" in config.py and re-run.

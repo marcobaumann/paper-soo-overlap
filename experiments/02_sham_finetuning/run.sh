@@ -14,8 +14,9 @@ for SEED in 0 1 2 3 4; do
   python evaluate.py --ckpt "./checkpoints/sham_seed${SEED}" --seed "$SEED" --tag sham
 done
 
-echo "=== aggregate ==="
-python aggregate.py --tag sham
+# classify_responses.py and aggregate.py are NOT run here — classification
+# uses an LLM judge and must run locally (not on this pod) after downloading
+# results/.
 
 # READ: the result is the GAP, not sham's raw number.
 #   SOO effect = (SOO reduction) - (sham reduction)

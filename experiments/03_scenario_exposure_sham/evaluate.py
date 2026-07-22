@@ -8,7 +8,7 @@ response that mentions both rooms as "unclear" — which turned out to be
 common: the model often states its recommendation first, then notes the true
 location afterward as a rationale (e.g. "...point to the dining room... while
 the platinum bracelet is actually in the utility room"). Instead, every
-response is dumped with "classification": null; run classify_with_haiku.py
+response is dumped with "classification": null; run classify_responses.py
 (locally, not on the training pod — keep the Anthropic API key off a rented
 instance) to fill it in via an LLM judge, then aggregate.py for the summary.
 

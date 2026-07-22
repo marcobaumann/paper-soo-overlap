@@ -14,8 +14,9 @@ for SEED in 0 1 2 3 4; do
   python evaluate.py --ckpt "./checkpoints/scen_seed${SEED}" --seed "$SEED" --tag scen
 done
 
-echo "=== aggregate ==="
-python aggregate.py --tag scen
+# classify_responses.py and aggregate.py are NOT run here — classification
+# uses an LLM judge and must run locally (not on this pod) after downloading
+# results/.
 
 # READ (this arm holds DATA constant vs. SOO, varies only the objective):
 #   * scen stays deceptive, only SOO honest  -> objective MATTERS; honesty is

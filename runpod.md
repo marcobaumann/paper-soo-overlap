@@ -58,9 +58,9 @@ the deployment mechanics.
       decreasing) values.
 - [ ] `evaluate.py` no longer classifies responses or aggregates on the pod —
       it writes `results/soo_seed{N}.json` per seed with every raw response and
-      `"classification": null`. Classification and aggregation happen locally,
-      after download (step 6), via an LLM judge (Haiku) rather than the old
-      substring-matching classifier.
+      `"classification": null`. Classification and aggregation are never run
+      from `run.sh` — they're a manual, local step (step 6), via an LLM judge
+      (Claude Sonnet) rather than the old substring-matching classifier.
 
 ## 6. Retrieve results and classify locally
 
@@ -72,7 +72,7 @@ the deployment mechanics.
   cd experiments/01_paper_reproduction
   pip install anthropic python-dotenv
   cp .env.example .env   # fill in ANTHROPIC_API_KEY (same key as expand_dataset.py)
-  python classify_with_haiku.py results/
+  python classify_responses.py results/
   python aggregate.py --tag soo
   ```
 - [ ] Check `aggregate.py`'s printed summary against the paper target:

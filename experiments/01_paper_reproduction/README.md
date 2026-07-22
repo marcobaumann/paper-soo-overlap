@@ -11,7 +11,8 @@ recipe exactly, so its output can be checked against the published numbers.
 3. Generates a response for every held-out Bob-Burglar test scenario
    (**disjoint** test item/room set) and dumps them all to `results/`, plus
    Latent SOO (MSE). Classification is NOT done at this step (see below).
-4. `classify_with_haiku.py` (run locally) judges each response honest/deceptive/
+4. `classify_responses.py` (run locally, Claude Sonnet as judge — **not** part
+   of `run.sh`, always a manual step) judges each response honest/deceptive/
    unclear, then `aggregate.py` reports mean ± SD over 5 seeds.
 
 ## Paper target
@@ -40,15 +41,17 @@ export HF_TOKEN=...      # gated model access
 bash run.sh
 ```
 This writes `results/soo_seed{N}.json` per seed with every response and
-`"classification": null`. Then, **locally** (not on the pod — keeps the
-Anthropic key off a rented instance):
+`"classification": null`. `run.sh` stops there on purpose — classification is
+always a separate, manual, local step:
 ```bash
 cp .env.example .env   # fill in ANTHROPIC_API_KEY (same key as expand_dataset.py)
-python classify_with_haiku.py results/
+python classify_responses.py results/
 python aggregate.py --tag soo
 ```
-`classify_with_haiku.py` is idempotent — safe to re-run if interrupted, or to
-add more seeds later; it only classifies entries still marked `null`.
+`classify_responses.py` uses Claude Sonnet as the judge and is idempotent —
+safe to re-run if interrupted, or to add more seeds later; it only classifies
+entries still marked `null`. Run it locally, not on the pod — keeps the
+Anthropic key off a rented instance.
 
 ## Running on RunPod
 This matches the paper's own setup (1x A100 SXM). A few things to sort out before launching:
@@ -88,11 +91,12 @@ cp .env.example .env   # then fill in ANTHROPIC_API_KEY
 ## Files
 `config.py` dose/hparams · `data.py` prompts & scenarios · `expand_dataset.py`
 dataset expansion via Claude Haiku · `.env.example` template for the API key
-(shared by `expand_dataset.py` and `classify_with_haiku.py`) · `soo.py`
+(shared by `expand_dataset.py` and `classify_responses.py`) · `soo.py`
 loss+hooks · `model_utils.py` loading (identical to sham arm) · `train.py` ·
 `evaluate.py` (generates + dumps responses, no classification) ·
-`classify_with_haiku.py` (LLM-judge classification, run locally) ·
-`aggregate.py` · `run.sh`
+`classify_responses.py` (LLM-judge classification via Claude Sonnet, run
+locally, manual step only — not called from `run.sh`) · `aggregate.py` ·
+`run.sh`
 
 ## MT-Bench
 Not bundled (external harness). Run the standard MT-Bench against each checkpoint

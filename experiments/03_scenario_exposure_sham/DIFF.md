@@ -7,7 +7,7 @@ thing the paper claims is special.
 
 ## Identical to `../01_paper_reproduction` (copied verbatim)
 `config.py` · `model_utils.py` · `data.py` · `soo.py` · `evaluate.py` ·
-`aggregate.py` · `classify_with_haiku.py` · `requirements.txt`
+`aggregate.py` · `classify_responses.py` · `requirements.txt`
 
 ## The ONE difference
 | | Reproduction (`train.py`) | Scenario sham (`train_scenario_sham.py`) |

@@ -1,7 +1,7 @@
 """
 aggregate.py — Collapse per-seed result JSONs into mean +/- SD, paper-style.
 
-Classification comes from classify_with_haiku.py (an LLM judge run locally),
+Classification comes from classify_responses.py (an LLM judge run locally),
 stored per response in each results/{tag}_seed{N}.json's "responses" list —
 this script just counts labels and reports latent_soo_mse mean/SD.
 
@@ -29,7 +29,7 @@ def main():
         n_unclassified = sum(1 for r in responses if r.get("classification") is None)
         if n_unclassified:
             print(f"[warn] {f}: {n_unclassified}/{len(responses)} not yet classified "
-                  f"(run classify_with_haiku.py first) -- skipping this seed")
+                  f"(run classify_responses.py first) -- skipping this seed")
             continue
         n = len(responses)
         n_deceptive = sum(1 for r in responses if r["classification"] == "deceptive")
