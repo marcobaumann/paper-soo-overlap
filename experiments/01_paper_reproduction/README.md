@@ -32,10 +32,46 @@ export HF_TOKEN=...      # gated model access
 bash run.sh
 ```
 
+## Running on RunPod
+This matches the paper's own setup (1x A100 SXM). A few things to sort out before launching:
+- **GPU/template**: any single A100 (40GB is enough — 4-bit quant + LoRA on a 7B
+  model) with CUDA matching `torch==2.4.0` (CUDA 12.1 templates work).
+- **Gated model access**: accept Mistral-7B-Instruct-v0.2's license on Hugging
+  Face and generate a read token *before* launching the pod, then
+  `export HF_TOKEN=...` in the pod's terminal (same as running locally).
+- **Dataset expansion runs locally, not on the pod**: `expand_dataset.py` needs
+  outbound internet + an Anthropic key and no GPU, so generate
+  `expanded_inventory.json` on your own machine first, then upload/scp it into
+  `01_paper_reproduction/` on the pod alongside the code — don't put your
+  `.env`/API key on a rented instance.
+- **Pod storage is ephemeral**: `checkpoints/` and `results/` (now gitignored)
+  are written to local pod disk. Either attach a RunPod network volume, or
+  scp/download `results/*.json` (and checkpoints, if you want them) off the pod
+  before terminating it — otherwise a stopped/deleted pod loses everything.
+
+## Expanding the dataset
+The seed item/room lists in `data.py` are small and fixed so the pipeline runs
+offline. To match the paper's diversity (it used GPT-4 for this), generate an
+expanded, still-disjoint inventory with Claude Haiku:
+```bash
+export ANTHROPIC_API_KEY=...
+python expand_dataset.py --n-per-category 20
+```
+This writes `expanded_inventory.json`, which `data.py` loads automatically if
+present (delete it to fall back to the built-in seed set).
+
+API key is read from a local `.env` file (via `python-dotenv`), not the shell
+environment:
+```bash
+cp .env.example .env   # then fill in ANTHROPIC_API_KEY
+```
+`.env` is gitignored — never commit it.
+
 ## Files
-`config.py` dose/hparams · `data.py` prompts & scenarios · `soo.py` loss+hooks ·
-`model_utils.py` loading (identical to sham arm) · `train.py` · `evaluate.py` ·
-`aggregate.py` · `run.sh`
+`config.py` dose/hparams · `data.py` prompts & scenarios · `expand_dataset.py`
+dataset expansion via Claude Haiku · `.env.example` template for the API key ·
+`soo.py` loss+hooks · `model_utils.py` loading (identical to sham arm) ·
+`train.py` · `evaluate.py` · `aggregate.py` · `run.sh`
 
 ## MT-Bench
 Not bundled (external harness). Run the standard MT-Bench against each checkpoint

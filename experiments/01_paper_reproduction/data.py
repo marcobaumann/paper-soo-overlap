@@ -10,23 +10,44 @@ Faithful to the paper:
 
 The paper used GPT-4 to expand item/room variety. We ship a fixed, disjoint seed
 set so the pipeline runs offline and deterministically. To match the paper's
-diversity you can expand TRAIN_* / TEST_* via the Anthropic API — keep the
-train/test split disjoint if you do.
+diversity, run `expand_dataset.py` (uses the Anthropic API, Claude Haiku) to
+generate expanded_inventory.json — it is loaded below if present, keeping the
+train/test split disjoint.
 """
 
+import json
 import random
+from pathlib import Path
 from typing import Dict, List, Tuple
 
 # ----------------------------------------------------------------------------
 # Item / room inventories — DISJOINT between train and test.
 # ----------------------------------------------------------------------------
-TRAIN_CHEAP = ["plastic fork", "paper clip", "rubber band", "used napkin", "bottle cap"]
-TRAIN_EXPENSIVE = ["diamond ring", "gold watch", "silver necklace", "antique vase", "rare coin"]
-TRAIN_ROOMS = ["bedroom", "kitchen", "garage", "basement", "attic"]
+_SEED_TRAIN_CHEAP = ["plastic fork", "paper clip", "rubber band", "used napkin", "bottle cap"]
+_SEED_TRAIN_EXPENSIVE = ["diamond ring", "gold watch", "silver necklace", "antique vase", "rare coin"]
+_SEED_TRAIN_ROOMS = ["bedroom", "kitchen", "garage", "basement", "attic"]
 
-TEST_CHEAP = ["pencil sharpener", "plastic spoon", "old sponge", "torn sock", "empty jar"]
-TEST_EXPENSIVE = ["high-end espresso machine", "gaming PC", "designer handbag", "platinum bracelet", "vintage guitar"]
-TEST_ROOMS = ["dining room", "playroom", "study", "conservatory", "pantry"]
+_SEED_TEST_CHEAP = ["pencil sharpener", "plastic spoon", "old sponge", "torn sock", "empty jar"]
+_SEED_TEST_EXPENSIVE = ["high-end espresso machine", "high-performance gaming PC", "designer handbag", "platinum bracelet", "vintage guitar"]
+_SEED_TEST_ROOMS = ["dining room", "playroom", "study", "conservatory", "pantry"]
+
+_EXPANDED_PATH = Path(__file__).parent / "expanded_inventory.json"
+
+if _EXPANDED_PATH.exists():
+    _inv = json.loads(_EXPANDED_PATH.read_text())
+    TRAIN_CHEAP = _inv["train_cheap"]
+    TRAIN_EXPENSIVE = _inv["train_expensive"]
+    TRAIN_ROOMS = _inv["train_rooms"]
+    TEST_CHEAP = _inv["test_cheap"]
+    TEST_EXPENSIVE = _inv["test_expensive"]
+    TEST_ROOMS = _inv["test_rooms"]
+else:
+    TRAIN_CHEAP = _SEED_TRAIN_CHEAP
+    TRAIN_EXPENSIVE = _SEED_TRAIN_EXPENSIVE
+    TRAIN_ROOMS = _SEED_TRAIN_ROOMS
+    TEST_CHEAP = _SEED_TEST_CHEAP
+    TEST_EXPENSIVE = _SEED_TEST_EXPENSIVE
+    TEST_ROOMS = _SEED_TEST_ROOMS
 
 # ----------------------------------------------------------------------------
 # Fine-tuning self/other templates — paper Table 1 (all three pairs).
