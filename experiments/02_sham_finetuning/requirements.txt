@@ -1,0 +1,9 @@
+# Pinned to avoid the set_submodule / activation-detach issues we hit before.
+# Do NOT bump these without re-checking the o_proj hook still captures grad.
+torch==2.4.0
+transformers==4.44.2
+accelerate==0.33.0
+peft==0.12.0
+bitsandbytes==0.43.3
+datasets==2.21.0
+numpy==1.26.4
