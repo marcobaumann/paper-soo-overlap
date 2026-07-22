@@ -14,12 +14,12 @@ diversity, run `expand_dataset.py` in `../01_paper_reproduction` (uses the
 Anthropic API, Claude Haiku) to generate expanded_inventory.json — it is loaded
 below if present, keeping the train/test split disjoint.
 
-IMPORTANT: this arm's evaluate.py is the SAME shared evaluator used by
-../01_paper_reproduction and ../03_scenario_exposure_sham, so its test
-scenarios must come from the same expanded_inventory.json as those arms —
-copy that file here rather than regenerating (Haiku's output isn't
-deterministic), or the deceptive-response-rate comparison across arms stops
-being apples-to-apples.
+IMPORTANT for this arm specifically: this experiment's entire premise (see
+DIFF.md) is holding the training DATA identical to ../01_paper_reproduction and
+varying only the objective. That means this folder's expanded_inventory.json
+must be the exact same file used by the SOO arm's run, not independently
+regenerated (Haiku's output isn't deterministic) — copy it over, don't rerun
+expand_dataset.py here.
 """
 
 import json
