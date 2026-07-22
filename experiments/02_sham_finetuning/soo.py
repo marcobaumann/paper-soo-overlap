@@ -27,7 +27,13 @@ class OProjCapture:
 
     def __init__(self, model, layer_idx: int):
         self.captured = None
-        target = model.model.layers[layer_idx].self_attn.o_proj
+        # PEFT wraps the model, so model.model no longer reaches the decoder
+        # stack directly. get_base_model() returns the original HF model
+        # whether or not `model` is PEFT-wrapped, and the hook still fires
+        # correctly since PEFT wraps modules in place (o_proj isn't a LoRA
+        # target here, so it's the same object either way).
+        base = model.get_base_model() if hasattr(model, "get_base_model") else model
+        target = base.model.layers[layer_idx].self_attn.o_proj
         self._handle = target.register_forward_hook(self._hook)
 
     def _hook(self, module, inputs, output):
