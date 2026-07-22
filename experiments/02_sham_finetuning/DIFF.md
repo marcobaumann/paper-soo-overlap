@@ -13,6 +13,7 @@ trail for that claim.
 | `soo.py` | o_proj capture + pooling (used by the shared evaluator) |
 | `evaluate.py` | deceptive-response-rate + Latent SOO scoring |
 | `aggregate.py` | mean ± SD |
+| `classify_with_haiku.py` | LLM-judge classification of evaluate.py's raw response dumps |
 | `requirements.txt` | pinned versions |
 
 ## The ONE difference

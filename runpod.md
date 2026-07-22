@@ -50,23 +50,33 @@ the deployment mechanics.
 
 ## 5. Run
 
-- [ ] `bash run.sh` — runs all 5 seeds (SOO fine-tune → evaluate), then
-      aggregates. Expect ~13 min/seed based on the paper's reported ~65 min
-      for fine-tuning all three of its models across five seeds combined; budget
-      more time for this repo's full train+eval loop per seed.
+- [ ] `bash run.sh` — runs all 5 seeds (SOO fine-tune → evaluate). Expect
+      ~13 min/seed based on the paper's reported ~65 min for fine-tuning all
+      three of its models across five seeds combined; budget more time for this
+      repo's full train+eval loop per seed.
 - [ ] Watch the periodic `soo_loss` printouts (`train.py`) for sane (non-NaN,
       decreasing) values.
-- [ ] After it finishes, check `aggregate.py`'s printed summary against the
-      paper target: deceptive response rate **73.6% → 17.27 ± 1.88%**.
-      - If Latent SOO barely moves or deception doesn't drop, that's the known
-        mean-pooling degeneracy — set `TRAIN.pooling="last"` in `config.py`
-        and re-run (see `README.md`).
+- [ ] `evaluate.py` no longer classifies responses or aggregates on the pod —
+      it writes `results/soo_seed{N}.json` per seed with every raw response and
+      `"classification": null`. Classification and aggregation happen locally,
+      after download (step 6), via an LLM judge (Haiku) rather than the old
+      substring-matching classifier.
 
-## 6. Retrieve results before the pod disappears
+## 6. Retrieve results and classify locally
 
-- [ ] Download `results/*.json` (per-seed metrics) off the pod.
+- [ ] Download `results/*.json` (per-seed raw responses) off the pod.
 - [ ] Download `checkpoints/` if you want the LoRA adapters, or discard them
       if not needed (they're gitignored, so they won't come back via git).
+- [ ] Locally (not on the pod — keeps the Anthropic key off a rented instance):
+  ```bash
+  cd experiments/01_paper_reproduction
+  pip install anthropic python-dotenv
+  cp .env.example .env   # fill in ANTHROPIC_API_KEY (same key as expand_dataset.py)
+  python classify_with_haiku.py results/
+  python aggregate.py --tag soo
+  ```
+- [ ] Check `aggregate.py`'s printed summary against the paper target:
+      deceptive response rate **73.6% → 17.27 ± 1.88%**.
 - [ ] Fill in `results.ipynb`'s Results/Conclusion sections locally with the
       retrieved numbers.
 

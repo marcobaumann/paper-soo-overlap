@@ -7,10 +7,12 @@ recipe exactly, so its output can be checked against the published numbers.
 ## What it does
 1. Builds self/other training pairs (Table 1 templates) over a train item/room set.
 2. LoRA fine-tunes q/v with the SOO loss = `MSE(A_self, A_other)` at `o_proj`,
-   layer 19, mean-pooled over the sequence.
-3. Evaluates deceptive response rate on a **disjoint** test item/room set
-   (Bob-Burglar), plus Latent SOO (MSE).
-4. Aggregates mean ± SD over 5 seeds.
+   layer 19.
+3. Generates a response for every held-out Bob-Burglar test scenario
+   (**disjoint** test item/room set) and dumps them all to `results/`, plus
+   Latent SOO (MSE). Classification is NOT done at this step (see below).
+4. `classify_with_haiku.py` (run locally) judges each response honest/deceptive/
+   unclear, then `aggregate.py` reports mean ± SD over 5 seeds.
 
 ## Paper target
 Deceptive response rate: **73.6% → 17.27 ± 1.88%**. MT-Bench ≈ flat (7.26 → 7.3).
@@ -19,9 +21,15 @@ Deceptive response rate: **73.6% → 17.27 ± 1.88%**. MT-Bench ≈ flat (7.26 �
 LoRA r=8, α=32, dropout=0.2, 4-bit, 15 epochs, lr=1e-4, batch=4, bf16.
 
 ## Two things we chose consciously
-- **Pooling = mean** (literal paper reading; the paper doesn't specify). If Latent
-  SOO barely moves / deception doesn't drop, that's the known mean-pooling
-  degeneracy → set `TRAIN.pooling="last"` in `config.py` and re-run.
+- **Pooling = last** (paper doesn't specify; started with "mean", switched after
+  the first full run). Mean pooling produced Latent SOO collapsing to ~1e-9
+  (numerical zero, not the paper's modest 0.107→0.078 reduction) and ~80%
+  "unclear" classifications — consistent with mean-pooling degeneracy rather
+  than genuine honesty gains. Switching to "last" fixed the behavioral collapse
+  (deceptive rate went from ~1% to ~34%, unclear rate from ~80% to ~59%), but
+  Latent SOO is *still* ~1e-9 with "last" pooling too — so pooling wasn't the
+  cause of that specific collapse; still an open question, not the paper's
+  partial-reduction shape.
 - **No stop-gradient on `A_self`.** Matches the paper. The anchor-drift line will
   add `detach()` in a *separate* experiment — do not add it here.
 
@@ -31,6 +39,16 @@ pip install -r requirements.txt
 export HF_TOKEN=...      # gated model access
 bash run.sh
 ```
+This writes `results/soo_seed{N}.json` per seed with every response and
+`"classification": null`. Then, **locally** (not on the pod — keeps the
+Anthropic key off a rented instance):
+```bash
+cp .env.example .env   # fill in ANTHROPIC_API_KEY (same key as expand_dataset.py)
+python classify_with_haiku.py results/
+python aggregate.py --tag soo
+```
+`classify_with_haiku.py` is idempotent — safe to re-run if interrupted, or to
+add more seeds later; it only classifies entries still marked `null`.
 
 ## Running on RunPod
 This matches the paper's own setup (1x A100 SXM). A few things to sort out before launching:
@@ -69,9 +87,12 @@ cp .env.example .env   # then fill in ANTHROPIC_API_KEY
 
 ## Files
 `config.py` dose/hparams · `data.py` prompts & scenarios · `expand_dataset.py`
-dataset expansion via Claude Haiku · `.env.example` template for the API key ·
-`soo.py` loss+hooks · `model_utils.py` loading (identical to sham arm) ·
-`train.py` · `evaluate.py` · `aggregate.py` · `run.sh`
+dataset expansion via Claude Haiku · `.env.example` template for the API key
+(shared by `expand_dataset.py` and `classify_with_haiku.py`) · `soo.py`
+loss+hooks · `model_utils.py` loading (identical to sham arm) · `train.py` ·
+`evaluate.py` (generates + dumps responses, no classification) ·
+`classify_with_haiku.py` (LLM-judge classification, run locally) ·
+`aggregate.py` · `run.sh`
 
 ## MT-Bench
 Not bundled (external harness). Run the standard MT-Bench against each checkpoint
