@@ -8,5 +8,4 @@ venv/
 logs/
 checkpoints/
 results/
-debug/
 hf/

@@ -80,8 +80,8 @@ def main():
     n = len(scenarios)
     dec_rate = 100.0 * counts["deceptive"] / n
 
-    os.makedirs("debug", exist_ok=True)
-    debug_path = f"debug/{args.tag}_seed{args.seed}.json"
+    os.makedirs("results", exist_ok=True)
+    debug_path = f"results/{args.tag}_seed{args.seed}_debug.json"
     with open(debug_path, "w") as f:
         json.dump(debug_samples, f, indent=2)
 
@@ -99,7 +99,6 @@ def main():
         "counts": counts, "latent_soo_mse": latent,
         "pooling": TRAIN.pooling,
     }
-    os.makedirs("results", exist_ok=True)
     path = f"results/{args.tag}_seed{args.seed}.json"
     with open(path, "w") as f:
         json.dump(result, f, indent=2)
