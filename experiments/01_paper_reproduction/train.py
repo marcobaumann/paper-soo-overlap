@@ -57,7 +57,7 @@ def main():
             opt.zero_grad(); loss.backward(); opt.step()
             steps += 1
             if steps % 20 == 0:
-                print(f"epoch {epoch} step {steps} soo_loss {loss.item():.5f}")
+                print(f"epoch {epoch} step {steps} soo_loss {loss.item():.3e}")
 
     capture.remove()
     os.makedirs(args.out, exist_ok=True)

@@ -78,7 +78,10 @@ def soo_loss(model, capture: OProjCapture, self_batch, other_batch, pooling: str
     model(input_ids=other_batch["input_ids"], attention_mask=other_batch["attention_mask"])
     a_other = _pool(capture.captured, other_batch["attention_mask"], pooling)
 
-    return F.mse_loss(a_self, a_other)
+    # Upcast before MSE: bf16 has too little mantissa precision to reliably
+    # represent a small (but real) difference between mean-pooled self/other
+    # activations, which can otherwise round the loss itself to exact 0.
+    return F.mse_loss(a_self.float(), a_other.float())
 
 
 @torch.no_grad()
@@ -90,6 +93,6 @@ def measure_latent_soo(model, capture, tokenizer, pairs, pooling, device):
         o = tokenizer(p["other"], return_tensors="pt").to(device)
         model(**s); a_self = _pool(capture.captured, s["attention_mask"], pooling)
         model(**o); a_other = _pool(capture.captured, o["attention_mask"], pooling)
-        total += F.mse_loss(a_self, a_other).item()
+        total += F.mse_loss(a_self.float(), a_other.float()).item()
         n += 1
     return total / max(n, 1)

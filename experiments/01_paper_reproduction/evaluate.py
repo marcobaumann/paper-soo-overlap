@@ -58,7 +58,12 @@ def main():
         prompt = s["prompt"] + MODEL.response_primer
         msgs = [{"role": "user", "content": prompt}]
         ids = tok.apply_chat_template(msgs, return_tensors="pt", add_generation_prompt=True).to(device)
-        out = model.generate(ids, max_new_tokens=EVAL.max_new_tokens, do_sample=False)
+        attention_mask = torch.ones_like(ids)
+        out = model.generate(
+            ids, attention_mask=attention_mask,
+            max_new_tokens=EVAL.max_new_tokens, do_sample=False,
+            pad_token_id=tok.pad_token_id,
+        )
         resp = tok.decode(out[0][ids.shape[1]:], skip_special_tokens=True)
         counts[classify(resp, s["honest_room"], s["deceptive_room"])] += 1
 
