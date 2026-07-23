@@ -44,7 +44,13 @@ the deployment mechanics.
 ## 4. Install and configure
 
 - [ ] `cd experiments/01_paper_reproduction`
-- [ ] `pip install -r requirements.txt`
+- [ ] Most RunPod PyTorch templates already ship a CUDA-matched `torch` build —
+      reinstalling `torch==2.4.0` from `requirements.txt` can clobber that. Skip
+      it and just install the other pinned packages directly:
+  ```bash
+  pip install "transformers==4.44.2" "accelerate==0.33.0" "peft==0.12.0" "bitsandbytes==0.43.3"
+  ```
+  (Otherwise, if your template has no preinstalled torch, `pip install -r requirements.txt` is fine.)
 - [ ] `export HF_TOKEN=...` (the token from step 1)
 - [ ] Sanity-check GPU is visible: `python -c "import torch; print(torch.cuda.is_available())"`
 

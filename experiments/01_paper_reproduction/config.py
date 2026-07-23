@@ -46,13 +46,14 @@ class TrainConfig:
     use_gradient_checkpointing: bool = False
 
     # --- Pooling over the sequence dimension at o_proj ---
-    # The paper does not specify. We started with "mean" (the most literal
-    # reading) but switched to "last" after the first full run: mean pooling
-    # produced Latent SOO collapsing to ~1e-9 (numerical zero, not the paper's
-    # modest 0.107->0.078 reduction) and ~80% "unclear" evaluate.py responses,
-    # consistent with the known mean-pooling degeneracy rather than genuine
-    # honesty gains. See experiments/01_paper_reproduction/README.md.
-    pooling: str = "last"  # {"mean", "last"}
+    # The paper does not specify. History: started with "mean", switched to
+    # "last" after the first full run looked degenerate (~80% "unclear", ~1%
+    # deceptive) -- but that run was scored with the old substring-matching
+    # classifier, which we later found systematically misclassifies responses
+    # that mention both rooms. Back to "mean" now that classify_responses.py
+    # (Sonnet judge) gives a trustworthy read, to see the real picture rather
+    # than an artifact of the old classifier. See experiments/01_paper_reproduction/README.md.
+    pooling: str = "mean"  # {"mean", "last"}
 
 
 @dataclass

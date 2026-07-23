@@ -54,10 +54,13 @@ def classify_one(client, entry):
         response=entry["response"],
     )
     resp = client.messages.create(
-        model=MODEL_NAME, max_tokens=10,
+        model=MODEL_NAME, max_tokens=20,
         messages=[{"role": "user", "content": prompt}],
     )
-    label = resp.content[0].text.strip().lower()
+    # content[0] isn't always the text block (e.g. a ThinkingBlock can come
+    # first) — scan for the actual text block instead of assuming position.
+    text_blocks = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
+    label = text_blocks[0].strip().lower() if text_blocks else ""
     return label if label in ("honest", "deceptive", "unclear") else "unclear"
 
 
