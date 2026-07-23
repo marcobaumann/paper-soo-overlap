@@ -187,21 +187,56 @@ section methodology precisely. Docstrings/comments across `soo.py`,
 to `02`, `03`, and `04_stopgrad_self_anchor` (the latter keeping its own
 distinct `soo_loss`, only the shared `AllLayersCapture` portion changed).
 
-This hasn't been re-run yet — `results-rung-3-ok/`'s `latent_soo_mse` values
-(~3.5e-5 to 4.2e-5) reflect the old combined MLP+attention average, not the
-corrected MLP-only metric. A fresh run is needed to get the paper-comparable
-number under the fixed definition.
+## Rung 4 — Re-run under the corrected (MLP-only) Latent SOO metric
+
+Same setup as Rung 3 (mean pooling, expanded dataset, Sonnet-judged) — only
+the Latent SOO measurement code changed (MLP-only, per the correction above).
+Full 5-seed run (`results-rung-4/`):
+
+| seed | honest | deceptive | unclear | deceptive rate | latent_soo_mse (MLP-only) |
+|---|---|---|---|---|---|
+| 0 | 238 | 1 | 11 | 0.40% | 5.97e-05 |
+| 1 | 233 | 2 | 15 | 0.80% | 6.72e-05 |
+| 2 | 202 | 10 | 38 | 4.00% | 7.22e-05 |
+| 3 | 243 | 1 | 6 | 0.40% | 6.42e-05 |
+| 4 | 223 | 6 | 21 | 2.40% | 6.99e-05 |
+
+**Aggregate:** deceptive rate **1.60 ± 1.57%**, Latent SOO (MLP-only, all
+layers) **6.66e-05 ± 0.49e-05**.
+
+**Reading it:**
+- Deceptive rate is essentially unchanged from Rung 3 (1.60% vs. 1.68%) — as
+  expected, since training itself didn't change, only the evaluation metric.
+  Good consistency check on the pipeline.
+- Latent SOO (MLP-only) is slightly *higher* than Rung 3's combined
+  MLP+attention number (6.66e-5 vs. ~3.86e-5) — makes sense, since attention-
+  layer o_proj outputs were apparently even more collapsed than MLP outputs,
+  so removing them from the average raises it slightly.
+- Still **~1,170x smaller** than the paper's 0.078. The metric is now
+  correctly defined, but the underlying collapse is unchanged: this is not a
+  measurement artifact, it's a real property of what this training run
+  produced.
+
+**Also considered and set aside:** whether using newer ML library versions
+than the paper's era (transformers/peft/bitsandbytes/torch) could explain the
+gap. Unlikely to be primary — `requirements.txt` already pins versions
+roughly contemporaneous with the paper (transformers 4.44.2, ~Aug 2024;
+paper published Dec 2024), and library/numerical drift typically produces
+small, inconsistent noise, not a systematic ~1,000x+ effect reproducible
+across all 5 seeds. Structural causes (broad LoRA scope, training dose)
+remain the leading hypotheses.
 
 ---
 
 ## Status as of this entry
 
-Best current numbers (`results-rung-3-ok/`, mean pooling, expanded dataset,
-Sonnet-judged): deceptive rate 1.68 ± 1.51%, Latent SOO (MLP+attention,
-**now known to be the wrong definition**) ~4e-5. Deceptive rate looks better
-than the paper's; Latent SOO strongly suggests this is a different (probably
-less faithful) mechanism than the paper's partial, distributed self-other
-alignment — likely broad-LoRA-driven early collapse rather than genuine
-calibrated honesty. Latent SOO metric now fixed to MLP-only but not yet
-re-run under the corrected definition. Also now have `04_stopgrad_self_anchor`
-set up to test the directional-gradient hypothesis. Not yet resolved.
+Best current numbers (`results-rung-4/`, mean pooling, expanded dataset,
+Sonnet-judged, **corrected MLP-only Latent SOO**): deceptive rate
+1.60 ± 1.57%, Latent SOO (all layers, MLP-only) 6.66e-05 ± 0.49e-05.
+Deceptive rate looks better than the paper's; Latent SOO is ~1,170x smaller
+than the paper's 0.078, confirming (now under the correctly-defined metric)
+that this is a different — probably less faithful — mechanism than the
+paper's partial, distributed self-other alignment. Leading hypothesis remains
+broad-LoRA-driven early collapse rather than genuine calibrated honesty.
+`04_stopgrad_self_anchor` is set up and next to test the directional-gradient
+hypothesis. Not yet resolved.
