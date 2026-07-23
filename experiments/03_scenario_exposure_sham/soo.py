@@ -45,15 +45,25 @@ class OProjCapture:
 
 
 class AllLayersCapture:
-    """Hooks self_attn.o_proj AND mlp output at EVERY decoder layer.
+    """Hooks mlp output at EVERY decoder layer -- MLP only, not attention.
 
-    This is for the paper's Table 4 Latent SOO definition: "mean layer-wise
-    MSE between all hidden MLP/attention layers" -- distinct from
-    OProjCapture, which only covers the single layer the SOO loss directly
-    optimizes during training. A single-layer measurement is expected to
-    collapse toward zero given enough training almost tautologically (it's
-    the direct optimization target); this broader measurement is the one
-    actually comparable to the paper's reported 0.107 -> 0.078 (Mistral-7B).
+    This is for the paper's Table 4 Latent SOO definition. The Methods
+    section (3.1.1) describes it generally as "mean layer-wise MSE between
+    all hidden MLP/attention layers," but the Results section (3.1.2),
+    reporting Mistral-7B's actual number (0.107 -> 0.078), specifically says
+    the MSE is "in the MLP layers" -- MLP only. Attention layers only enter
+    the picture as a Gemma-2-27B-it-specific fallback, because Gemma's
+    MLP-only number showed no change ("We observe no significant change in
+    the MSE over all MLP layers for Gemma-2-27b-it, which led us to calculate
+    the MSE over all attention layers"). For Mistral -- this repro's target --
+    MLP-only is the reported methodology, so that's what we hook here.
+
+    Distinct from OProjCapture, which only covers the single attention layer
+    the SOO loss directly optimizes during training. A single-layer
+    measurement is expected to collapse toward zero given enough training
+    almost tautologically (it's the direct optimization target); this
+    broader, MLP-only measurement is the one actually comparable to the
+    paper's reported 0.107 -> 0.078 (Mistral-7B).
     """
 
     def __init__(self, model):
@@ -61,9 +71,6 @@ class AllLayersCapture:
         self.captured = {}
         self._handles = []
         for i, layer in enumerate(base.model.layers):
-            self._handles.append(
-                layer.self_attn.o_proj.register_forward_hook(self._make_hook(f"attn_{i}"))
-            )
             self._handles.append(
                 layer.mlp.register_forward_hook(self._make_hook(f"mlp_{i}"))
             )
@@ -138,10 +145,10 @@ def measure_latent_soo(model, capture, tokenizer, pairs, pooling, device):
 
 @torch.no_grad()
 def measure_latent_soo_all_layers(model, capture: "AllLayersCapture", tokenizer, pairs, pooling, device):
-    """Paper's Table 4 Latent SOO definition: mean MSE between self/other
-    activations, averaged across ALL hidden MLP/attention layers -- not just
-    the single layer the training loss directly targets. This is the number
-    comparable to the paper's reported 0.107 -> 0.078 (Mistral-7B)."""
+    """Paper's Table 4 Latent SOO definition for Mistral-7B: mean MSE between
+    self/other activations, averaged across ALL hidden MLP layers -- not just
+    the single (attention) layer the training loss directly targets. This is
+    the number comparable to the paper's reported 0.107 -> 0.078 (Mistral-7B)."""
     total, n = 0.0, 0
     for p in pairs:
         s = tokenizer(p["self"], return_tensors="pt").to(device)

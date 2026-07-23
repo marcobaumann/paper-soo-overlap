@@ -1,20 +1,36 @@
 """
-soo.py — The heart of the method: capture o_proj activations and compute the
-Self-Other Overlap loss as MSE(A_self, A_other).
+soo.py — STOP-GRADIENT SELF-ANCHOR VARIANT.
 
-Design notes / gotchas baked in:
-  * We hook the OUTPUT of model.model.layers[L].self_attn.o_proj. The hook keeps
-    the tensor in the autograd graph, so gradients flow into the LoRA params from
-    BOTH the self and other forward passes. This is intentional and matches the
-    paper (no stop-gradient on A_self). The anchor-drift critique lives exactly
-    here — a separate experiment will add detach() to test it. Do NOT add detach
-    in this faithful-reproduction file.
+THE ONLY DIFFERENCE FROM ../01_paper_reproduction/soo.py IS IN soo_loss(): A_self
+is now a detached (stop-gradient) anchor. Everything else (OProjCapture,
+AllLayersCapture, _pool, measure_latent_soo, measure_latent_soo_all_layers) is
+byte-identical to 01, since evaluate.py needs them to behave the same way.
+
+Why: 01's soo_loss lets gradient flow through BOTH the self and other forward
+passes, so the optimizer has no preference for which side moves -- self could
+drift toward other, other could drift toward self, or both could drift toward
+some midpoint. The paper doesn't specify which of these happens (no mention of
+stop-gradient either way; 01 assumes none, as the literal reading). But the
+intent of SOO is that OTHER-referencing reasoning (where deception happens)
+should come to resemble SELF-referencing reasoning (presumably already
+honest) -- not the reverse, and not an undirected collapse toward a shared
+midpoint. Rung 3 in 01's JOURNAL.md found evidence consistent with an
+undirected collapse: Latent SOO drops to near-total overlap across ALL layers
+(not just the trained one), on held-out test items, with every sampled
+response following one identical templated shortcut -- symptoms of the model
+erasing the self/other distinction outright rather than learning a calibrated,
+directional adjustment.
+
+This arm tests whether anchoring self (blocking gradient through the self
+pass, so only the other-referencing computation is pushed toward self) avoids
+that undirected collapse and produces something closer to the paper's partial,
+distributed effect (Latent SOO 0.107 -> 0.078, not ~1e-9 or ~1e-5).
+
+Design notes / gotchas carried over from 01:
   * gradient checkpointing MUST be off (config.TRAIN.use_gradient_checkpointing),
-    otherwise the recomputation path detaches these activations and the SOO
-    gradient collapses to ~0.
+    otherwise the recomputation path detaches activations and the SOO gradient
+    collapses to ~0 regardless of this file's changes.
   * Pooling over the sequence dim defaults to "mean" (config.TRAIN.pooling).
-    Watch for degeneracy (near-zero variance / no delta) — that's the known mean
-    pooling failure mode.
 """
 
 import torch
@@ -108,14 +124,19 @@ def _pool(activations: torch.Tensor, attention_mask: torch.Tensor, mode: str) ->
 def soo_loss(model, capture: OProjCapture, self_batch, other_batch, pooling: str):
     """
     One SOO step: two forward passes (self, other), pool o_proj activations,
-    return MSE. Both passes share weights, so grad flows to LoRA from both.
+    return MSE. A_self is a DETACHED anchor (stop-gradient) -- computed under
+    no_grad and skipped from the backward pass entirely, so only the LoRA
+    parameters' effect on the OTHER-referencing pass gets a gradient. This
+    directs the loss to pull other's representation toward self, rather than
+    letting both drift toward each other (or toward a cheap shared collapse).
     self_batch / other_batch: dicts with input_ids, attention_mask (already on device).
     """
-    # --- self pass ---
-    model(input_ids=self_batch["input_ids"], attention_mask=self_batch["attention_mask"])
-    a_self = _pool(capture.captured, self_batch["attention_mask"], pooling)
+    # --- self pass: frozen anchor, no gradient ---
+    with torch.no_grad():
+        model(input_ids=self_batch["input_ids"], attention_mask=self_batch["attention_mask"])
+        a_self = _pool(capture.captured, self_batch["attention_mask"], pooling).detach()
 
-    # --- other pass ---
+    # --- other pass: trainable ---
     model(input_ids=other_batch["input_ids"], attention_mask=other_batch["attention_mask"])
     a_other = _pool(capture.captured, other_batch["attention_mask"], pooling)
 

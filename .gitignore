@@ -9,3 +9,5 @@ logs/
 checkpoints/
 results/
 hf/
+
+**/*.zip

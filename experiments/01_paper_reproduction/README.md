@@ -10,11 +10,12 @@ recipe exactly, so its output can be checked against the published numbers.
    layer 19.
 3. Generates a response for every held-out Bob-Burglar test scenario
    (**disjoint** test item/room set) and dumps them all to `results/`, plus
-   Latent SOO (MSE) — both averaged across all MLP/attention layers (the
-   paper's Table 4 definition, `latent_soo_mse`) and at just the trained layer
-   (a training sanity check, `latent_soo_trained_layer_mse` — expect this one
-   near zero almost tautologically, since it's the loss's direct optimization
-   target). Classification is NOT done at this step (see below).
+   Latent SOO (MSE) — both averaged across all MLP layers (the paper's Table 4
+   methodology for Mistral-7B specifically, `latent_soo_mse`) and at just the
+   trained layer (a training sanity check, `latent_soo_trained_layer_mse` —
+   expect this one near zero almost tautologically, since it's the loss's
+   direct optimization target). Classification is NOT done at this step (see
+   below).
 4. `classify_responses.py` (run locally, Claude Sonnet as judge — **not** part
    of `run.sh`, always a manual step) judges each response honest/deceptive/
    unclear, then `aggregate.py` reports mean ± SD over 5 seeds.
@@ -43,10 +44,15 @@ LoRA r=8, α=32, dropout=0.2, 4-bit, 15 epochs, lr=1e-4, batch=4, bf16.
   dataset size, none of it matters — because it's measuring exactly what the
   SOO loss directly optimizes, so of course it converges given enough
   training; that's near-tautological, not informative. The paper's Table 4
-  Latent SOO is a *mean across all MLP/attention layers*, most of which are
-  untouched by training — `AllLayersCapture`/`measure_latent_soo_all_layers`
-  in `soo.py` now compute that instead, reported as `latent_soo_mse`
-  (paper-comparable) alongside the old single-layer number as
+  Latent SOO for Mistral-7B specifically is a *mean across all MLP layers*
+  (the paper's Methods section describes it more generally as "MLP/attention
+  layers," but the Results section, reporting Mistral's actual 0.107→0.078,
+  says "in the MLP layers" — attention layers only enter as a
+  Gemma-2-27B-it-specific fallback, since Gemma's MLP-only number showed no
+  change) — most of which are untouched by training.
+  `AllLayersCapture`/`measure_latent_soo_all_layers` in `soo.py` hook every
+  layer's `mlp` output (not `self_attn.o_proj`) and average, reported as
+  `latent_soo_mse` (paper-comparable) alongside the old single-layer number as
   `latent_soo_trained_layer_mse` (training sanity check only).
 - **No stop-gradient on `A_self`.** Matches the paper. The anchor-drift line will
   add `detach()` in a *separate* experiment — do not add it here.

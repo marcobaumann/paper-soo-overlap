@@ -1,7 +1,8 @@
 """
 evaluate.py — Runs a checkpoint on the held-out test scenarios and dumps every
 raw response for offline classification. Also reports Latent SOO (MSE), both
-at the single trained layer and averaged across all MLP/attention layers.
+at the single trained layer and averaged across all MLP layers (the paper's
+Table 4 methodology for Mistral-7B specifically).
 
 Classification is NOT done here. An earlier version classified locally by
 substring-matching room names in the response, but that misclassifies any

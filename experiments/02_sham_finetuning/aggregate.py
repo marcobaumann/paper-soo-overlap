@@ -5,8 +5,10 @@ Classification comes from classify_responses.py (an LLM judge run locally),
 stored per response in each results/{tag}_seed{N}.json's "responses" list —
 this script just counts labels and reports latent_soo_mse mean/SD.
 
-latent_soo_mse (mean across all MLP/attention layers) is the number
-comparable to the paper's Table 4. latent_soo_trained_layer_mse (the single
+latent_soo_mse (mean across all MLP layers -- the paper's Table 4 methodology
+for Mistral-7B specifically; attention layers only enter the paper's
+methodology as a Gemma-2-27B-it-specific fallback) is the number comparable
+to the paper's Table 4. latent_soo_trained_layer_mse (the single attention
 layer the SOO loss directly optimizes) is expected to collapse toward zero
 given enough training almost tautologically -- it's a training sanity check,
 not a paper-comparable number.
