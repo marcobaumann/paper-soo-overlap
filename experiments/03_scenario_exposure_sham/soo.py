@@ -44,6 +44,40 @@ class OProjCapture:
         self._handle.remove()
 
 
+class AllLayersCapture:
+    """Hooks self_attn.o_proj AND mlp output at EVERY decoder layer.
+
+    This is for the paper's Table 4 Latent SOO definition: "mean layer-wise
+    MSE between all hidden MLP/attention layers" -- distinct from
+    OProjCapture, which only covers the single layer the SOO loss directly
+    optimizes during training. A single-layer measurement is expected to
+    collapse toward zero given enough training almost tautologically (it's
+    the direct optimization target); this broader measurement is the one
+    actually comparable to the paper's reported 0.107 -> 0.078 (Mistral-7B).
+    """
+
+    def __init__(self, model):
+        base = model.get_base_model() if hasattr(model, "get_base_model") else model
+        self.captured = {}
+        self._handles = []
+        for i, layer in enumerate(base.model.layers):
+            self._handles.append(
+                layer.self_attn.o_proj.register_forward_hook(self._make_hook(f"attn_{i}"))
+            )
+            self._handles.append(
+                layer.mlp.register_forward_hook(self._make_hook(f"mlp_{i}"))
+            )
+
+    def _make_hook(self, name):
+        def hook(module, inputs, output):
+            self.captured[name] = output
+        return hook
+
+    def remove(self):
+        for h in self._handles:
+            h.remove()
+
+
 def _pool(activations: torch.Tensor, attention_mask: torch.Tensor, mode: str) -> torch.Tensor:
     """
     Pool [batch, seq, hidden] -> [batch, hidden] over valid tokens.
@@ -86,7 +120,11 @@ def soo_loss(model, capture: OProjCapture, self_batch, other_batch, pooling: str
 
 @torch.no_grad()
 def measure_latent_soo(model, capture, tokenizer, pairs, pooling, device):
-    """Latent SOO diagnostic: mean MSE over held-out self/other pairs (paper Table 4)."""
+    """Single-layer Latent SOO diagnostic: mean MSE at the exact trained layer
+    (OProjCapture). Expected to converge toward zero given enough training --
+    it's the SOO loss's direct optimization target -- so use this to sanity-
+    check training actually moved this number, NOT as a paper-comparable
+    metric (see measure_latent_soo_all_layers for that)."""
     total, n = 0.0, 0
     for p in pairs:
         s = tokenizer(p["self"], return_tensors="pt").to(device)
@@ -94,5 +132,30 @@ def measure_latent_soo(model, capture, tokenizer, pairs, pooling, device):
         model(**s); a_self = _pool(capture.captured, s["attention_mask"], pooling)
         model(**o); a_other = _pool(capture.captured, o["attention_mask"], pooling)
         total += F.mse_loss(a_self.float(), a_other.float()).item()
+        n += 1
+    return total / max(n, 1)
+
+
+@torch.no_grad()
+def measure_latent_soo_all_layers(model, capture: "AllLayersCapture", tokenizer, pairs, pooling, device):
+    """Paper's Table 4 Latent SOO definition: mean MSE between self/other
+    activations, averaged across ALL hidden MLP/attention layers -- not just
+    the single layer the training loss directly targets. This is the number
+    comparable to the paper's reported 0.107 -> 0.078 (Mistral-7B)."""
+    total, n = 0.0, 0
+    for p in pairs:
+        s = tokenizer(p["self"], return_tensors="pt").to(device)
+        o = tokenizer(p["other"], return_tensors="pt").to(device)
+
+        model(**s)
+        self_acts = {k: _pool(v, s["attention_mask"], pooling) for k, v in capture.captured.items()}
+        model(**o)
+        other_acts = {k: _pool(v, o["attention_mask"], pooling) for k, v in capture.captured.items()}
+
+        layer_mses = [
+            F.mse_loss(self_acts[k].float(), other_acts[k].float()).item()
+            for k in self_acts
+        ]
+        total += sum(layer_mses) / len(layer_mses)
         n += 1
     return total / max(n, 1)

@@ -1,6 +1,7 @@
 """
 evaluate.py — Runs a checkpoint on the held-out test scenarios and dumps every
-raw response for offline classification. Also reports Latent SOO (MSE).
+raw response for offline classification. Also reports Latent SOO (MSE), both
+at the single trained layer and averaged across all MLP/attention layers.
 
 Classification is NOT done here. An earlier version classified locally by
 substring-matching room names in the response, but that misclassifies any
@@ -23,7 +24,7 @@ from peft import PeftModel
 
 from config import MODEL, TRAIN, EVAL
 from data import build_test_scenarios, build_latent_soo_pairs
-from soo import OProjCapture, measure_latent_soo
+from soo import OProjCapture, AllLayersCapture, measure_latent_soo, measure_latent_soo_all_layers
 
 
 def load_ckpt(ckpt, device):
@@ -67,18 +68,25 @@ def main():
         })
 
     n = len(scenarios)
+    latent_pairs = build_latent_soo_pairs(EVAL.n_latent_soo_pairs, args.seed)
 
-    capture = OProjCapture(model, MODEL.soo_layer)
-    latent = measure_latent_soo(
-        model, capture, tok,
-        build_latent_soo_pairs(EVAL.n_latent_soo_pairs, args.seed),
-        TRAIN.pooling, device,
+    trained_layer_capture = OProjCapture(model, MODEL.soo_layer)
+    latent_trained_layer = measure_latent_soo(
+        model, trained_layer_capture, tok, latent_pairs, TRAIN.pooling, device,
     )
-    capture.remove()
+    trained_layer_capture.remove()
+
+    all_layers_capture = AllLayersCapture(model)
+    latent_all_layers = measure_latent_soo_all_layers(
+        model, all_layers_capture, tok, latent_pairs, TRAIN.pooling, device,
+    )
+    all_layers_capture.remove()
 
     result = {
         "tag": args.tag, "seed": args.seed, "n": n,
-        "latent_soo_mse": latent, "pooling": TRAIN.pooling,
+        "latent_soo_mse": latent_all_layers,
+        "latent_soo_trained_layer_mse": latent_trained_layer,
+        "pooling": TRAIN.pooling,
         "responses": responses,
     }
     os.makedirs("results", exist_ok=True)

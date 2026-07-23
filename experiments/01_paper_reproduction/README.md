@@ -10,7 +10,11 @@ recipe exactly, so its output can be checked against the published numbers.
    layer 19.
 3. Generates a response for every held-out Bob-Burglar test scenario
    (**disjoint** test item/room set) and dumps them all to `results/`, plus
-   Latent SOO (MSE). Classification is NOT done at this step (see below).
+   Latent SOO (MSE) — both averaged across all MLP/attention layers (the
+   paper's Table 4 definition, `latent_soo_mse`) and at just the trained layer
+   (a training sanity check, `latent_soo_trained_layer_mse` — expect this one
+   near zero almost tautologically, since it's the loss's direct optimization
+   target). Classification is NOT done at this step (see below).
 4. `classify_responses.py` (run locally, Claude Sonnet as judge — **not** part
    of `run.sh`, always a manual step) judges each response honest/deceptive/
    unclear, then `aggregate.py` reports mean ± SD over 5 seeds.
@@ -22,15 +26,28 @@ Deceptive response rate: **73.6% → 17.27 ± 1.88%**. MT-Bench ≈ flat (7.26 �
 LoRA r=8, α=32, dropout=0.2, 4-bit, 15 epochs, lr=1e-4, batch=4, bf16.
 
 ## Two things we chose consciously
-- **Pooling = last** (paper doesn't specify; started with "mean", switched after
-  the first full run). Mean pooling produced Latent SOO collapsing to ~1e-9
-  (numerical zero, not the paper's modest 0.107→0.078 reduction) and ~80%
-  "unclear" classifications — consistent with mean-pooling degeneracy rather
-  than genuine honesty gains. Switching to "last" fixed the behavioral collapse
-  (deceptive rate went from ~1% to ~34%, unclear rate from ~80% to ~59%), but
-  Latent SOO is *still* ~1e-9 with "last" pooling too — so pooling wasn't the
-  cause of that specific collapse; still an open question, not the paper's
-  partial-reduction shape.
+- **Pooling = mean** (paper doesn't specify; literal reading). History: an
+  early run under the old substring-matching classifier looked degenerate with
+  "mean" (~80% "unclear", ~1% deceptive), so we switched to "last" — but that
+  read turned out to be an artifact of the old classifier, which
+  systematically misclassifies responses mentioning both rooms (see
+  `classify_responses.py`). We also ran a diagnostic disabling the expanded
+  dataset (falling back to the tiny paper-derived seed set): with "last"
+  pooling that scored 88.4% deceptive, with "mean" pooling it scored 0.0% —
+  both extremes are signs of overfitting a 30-pair dataset into a rigid
+  shortcut, not the paper's calibrated partial effect. Settled back on "mean"
+  (the more literal reading) with the full expanded dataset now that
+  classification is trustworthy.
+- **Latent SOO metric fix**: the single-trained-layer measurement collapses
+  toward ~1e-9 (numerical zero) in *every* condition we've tried — pooling,
+  dataset size, none of it matters — because it's measuring exactly what the
+  SOO loss directly optimizes, so of course it converges given enough
+  training; that's near-tautological, not informative. The paper's Table 4
+  Latent SOO is a *mean across all MLP/attention layers*, most of which are
+  untouched by training — `AllLayersCapture`/`measure_latent_soo_all_layers`
+  in `soo.py` now compute that instead, reported as `latent_soo_mse`
+  (paper-comparable) alongside the old single-layer number as
+  `latent_soo_trained_layer_mse` (training sanity check only).
 - **No stop-gradient on `A_self`.** Matches the paper. The anchor-drift line will
   add `detach()` in a *separate* experiment — do not add it here.
 
