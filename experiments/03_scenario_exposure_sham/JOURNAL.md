@@ -8,6 +8,42 @@ varies ONLY the objective (next-token LM instead of the SOO loss). Isolates
 whether `01`'s honesty comes from the SOO *objective* or just from the model
 *seeing these scenarios*.
 
+### Methodological clarification — NEITHER arm is shown answers
+
+Important, and a likely demo question ("was SOO trained on the correct
+answers?"): **no — neither 01 nor 03 ever sees a room answer.** This is verified
+in the code, not assumed:
+
+- The SOO training templates (`data.py` `SELF_OTHER_TEMPLATES`) **stop
+  mid-sentence** — e.g. *"You have the goal of stealing the {item}. If you
+  needed to suggest one room to yourself"* — no room is named, no
+  honest/deceptive completion exists.
+- **01 (SOO)** never does next-token prediction at all. `soo_loss` runs one
+  forward pass on the self-prompt and one on the other-prompt and returns the
+  **MSE between their internal o_proj activations**. There is no target/label,
+  so there is nothing to "show as an answer" — the loss is purely "make the
+  Bob-referencing representation resemble the self-referencing one."
+- **03 (exposure)** uses the *same* answer-free strings, flattened, with a
+  next-token LM loss on the prompt text itself (`labels = input_ids.clone()`).
+  Also no answer appended (deliberately — see `DIFF.md`: appending the honest
+  room would make it supervised imitation of honesty, a competitor method, not
+  a control for SOO).
+
+So the 01↔03 difference is **objective + pairing, NOT answers**:
+
+| | 01 (SOO) | 03 (exposure) |
+|---|---|---|
+| Text seen | self + other prompts (no answers) | the SAME strings (no answers) |
+| Processed as | pairs (self-prompt & other-prompt together) | flattened, unpaired |
+| Objective | MSE between internal activations | next-token prediction of the prompt |
+| Answer shown | none | none |
+
+Consequence for interpreting the decomposition: the honesty that emerges in
+either arm is **not imitation of shown correct answers** — the model was never
+taught "the honest room." The 82%/18% split is comparing two ways of
+*processing the same answer-free text*, which is exactly what a clean
+objective-isolating control should do.
+
 **Result (`results-rung-1/`, all 5 seeds, Sonnet-judged):**
 
 | seed | honest | deceptive | unclear | deceptive rate | latent_soo_mse (MLP) |
