@@ -20,13 +20,12 @@ hook, bf16 rounding the loss to zero, a broken substring classifier), which is
 exactly why I'm cautious rather than triumphant about the headline.
 
 **2. You never measured a baseline on your own test set.**
-Correct — that's the single biggest open gap and I want to flag it before you
-do. We compare our post-FT number to the paper's baseline, not to our own
-untrained Mistral on our own 250 expanded scenarios. It's the cheapest missing
-control and I'd run it before making any strong claim about effect size. What I
-can say is behavior clearly changed with training (the tiny-dataset diagnostics
-swung from 0% to 88% depending on setup), so training is doing *something*
-large — I just can't yet quantify our own delta properly.
+We have now — 05, untrained Mistral on our exact 250 test scenarios: **92.64 ±
+1.80% deceptive**. So our real effect is 92.6% → 1.6% (91pp), and it's not
+borrowed from the paper. Two cross-checks fall out of it: (a) the wikitext sham
+(02, 93.76%) sits right at the baseline, confirming generic fine-tuning does
+nothing; (b) our baseline is much higher than the paper's 73.6% — which is
+exactly why our post-SOO number looks better than theirs (see Q14).
 
 **3. Do the pinned library versions match the paper's?**
 It's an educated guess, not verified — the paper doesn't publish exact
@@ -132,11 +131,14 @@ which is worth knowing independent of any single number.
 ## E. Deceptive rate
 
 **14. Why is yours better, and can we trust either number?**
-The qualitative finding reproduces: SOO training sharply reduces deception. The
-exact magnitude I would not over-interpret, for the reason in Q2 — we never ran
-our own untrained baseline, so "1.6 vs 17.3" isn't a clean apples-to-apples
-comparison. My honest position: effect direction reproduces, magnitude is
-uncertain until we have a matched baseline and understand the latent collapse.
+Now answerable with our own baseline (05). Our untrained model is **92.64%
+deceptive** vs the paper's 73.6% baseline — our test scenarios simply elicit
+more baseline deception. So our post-SOO 1.6% looks better than the paper's
+17.27% partly because we start higher and fall further (91pp vs their 56pp),
+on an easier-to-be-deceptive distribution. Both numbers are internally
+trustworthy — the difference is the test distribution, not one being wrong.
+The qualitative effect (SOO sharply cuts deception) reproduces cleanly; the
+magnitude gap is explained by the baseline, not a mystery.
 
 ---
 
@@ -160,13 +162,24 @@ matching forward passes or tokens, the shams need 2x steps. We documented it as
 a known caveat rather than silently picking one and hiding it.
 
 **17. Have you actually run 02/03/04?**
-01, 02, 03, and 04 are fully run (5 seeds each); 05 (baseline) and 06
-(Perspectives) are built and about to run. The control ladder decomposes the
-effect (see Q23): 02 (unrelated wikitext FT) stays 93.76% deceptive; 03
-(scenario-text exposure, no SOO objective) drops to 17.60%; 01 (full SOO)
-reaches 1.60%. So exposure to the scenarios does most of the work and the SOO
-objective adds a modest increment. 04 (stop-gradient) destroyed the model — see
-Q21/Q22.
+01, 02, 03, 04, and 05 are fully run (5 seeds each); only 06 (Perspectives)
+remains. The control ladder decomposes the effect (see Q23): 05 untrained
+baseline 92.64%; 02 (unrelated wikitext FT) stays 93.76%; 03 (scenario-text
+exposure, no SOO objective) drops to 17.60%; 01 (full SOO) reaches 1.60%. So
+exposure to the scenarios does most of the work and the SOO objective adds a
+modest increment. 04 (stop-gradient) destroyed the model — see Q21/Q22.
+
+**17b. Was SOO trained on the correct answers? (isn't that how 03 differs?)**
+No — and this is verified in the code, not assumed. NEITHER 01 nor 03 ever sees
+a room answer. The SOO training prompts stop mid-sentence ("...suggest one room
+to yourself") — no room is named. 01's SOO loss doesn't do next-token
+prediction at all; it returns the MSE between the internal activations of the
+self-prompt and the other-prompt, so there's no target to show as an answer. 03
+uses the *same* answer-free strings with a next-token objective. The 01↔03
+difference is **objective + pairing, not answers** — so the honesty in either
+arm is not imitation of shown answers; the model was never taught "the honest
+room." (Appending answers would make 03 supervised honesty imitation — a
+competitor method, not a control — which is why we deliberately don't.)
 
 ---
 
