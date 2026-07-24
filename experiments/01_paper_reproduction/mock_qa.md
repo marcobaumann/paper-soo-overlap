@@ -160,14 +160,13 @@ matching forward passes or tokens, the shams need 2x steps. We documented it as
 a known caveat rather than silently picking one and hiding it.
 
 **17. Have you actually run 02/03/04?**
-Being straight on status: 01, 02, and 04 are fully run (5 seeds each); 03 is
-code-complete and validated but not yet run; 05 (baseline) and 06 (Perspectives)
-are built and about to run. Headline results: 02 (wikitext sham) stayed at
-93.76% deceptive vs SOO's 1.60% — a ~92pp SOO-specific effect, the control the
-paper lacks, and it came back in SOO's favor. 04 (stop-gradient) destroyed the
-model (100% gibberish) — see Q21/Q22. 03 is the remaining pivotal test — if
-scenario-exposure alone turns the model honest, exposure not the objective did
-the work.
+01, 02, 03, and 04 are fully run (5 seeds each); 05 (baseline) and 06
+(Perspectives) are built and about to run. The control ladder decomposes the
+effect (see Q23): 02 (unrelated wikitext FT) stays 93.76% deceptive; 03
+(scenario-text exposure, no SOO objective) drops to 17.60%; 01 (full SOO)
+reaches 1.60%. So exposure to the scenarios does most of the work and the SOO
+objective adds a modest increment. 04 (stop-gradient) destroyed the model — see
+Q21/Q22.
 
 ---
 
@@ -234,18 +233,22 @@ consistent across all 5 seeds, so it's a real property of the objective.)*
 ## I. Implications for the paper
 
 **23. Bottom line — validate or challenge?**
-Mostly validates, with caveats — and the sham control (02) strengthened the
-"validate" side materially. What reproduces: SOO fine-tuning sharply reduces
-deception (to 1.6%), and — critically — our wikitext sham shows generic
-fine-tuning of the same dose does *not* (stays 93.76%), so the effect is
-**SOO-specific**. That's the dose-matched control the paper was missing, and we
-supply it in SOO's favor. What still needs support: (a) the Latent SOO absolute
-scale is ~1000x off, though 02 suggests that's measurement, not collapse; (b)
-whether the honesty is *calibrated* or a *behavioral* self/other collapse is
-still open — 06 (Perspectives) is the direct test; (c) the result is fragile to
-underspecified choices (pooling, dataset). Net: the core claim reproduces and is
-SOO-specific; the mechanism and the metric scale need the last two experiments
-(05, 06) to close out.
+The behavioral effect reproduces, but our control ladder challenges the
+*mechanism* attribution — and this is our most important finding. Decomposition
+(all our own numbers, dose-matched): generic wikitext fine-tuning stays 93.76%
+deceptive (02); fine-tuning on the scenario text with no SOO objective drops it
+to 17.60% (03); the full SOO objective reaches 1.60% (01). So ~83% of the total
+honesty effect is explained by mere **exposure to the deception scenarios**, and
+the SOO objective adds a modest ~16pp on top. The paper attributes the effect to
+the self-other-overlap mechanism; our controls suggest most of it is data-
+driven, with SOO contributing a real but minority increment. Provocatively, our
+exposure-only arm (17.60%) nearly matches the paper's own headline SOO number
+(17.27%) — though with high variance. Add to that: the Latent SOO scale gap is
+measurement, not collapse (02); and calibrated-vs-collapsed honesty is still
+open (06 next). Net: the deception drop is real and reproduces; the *claim that
+it's the SOO mechanism doing the work* is only partly supported — most of it is
+the data. That's the control the paper lacked, and it's the headline of our
+study.
 
 **24. Most load-bearing undocumented choice?**
 For the headline *percentage*: scoring methodology and dataset, jointly — we
